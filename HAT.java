@@ -37,8 +37,7 @@ import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.HardwareDevice;
 import com.qualcomm.robotcore.hardware.AccelerationSensor;
-import com.qualcomm.robotcore.hardware.AnalogSensor;
-import com.qualcomm.robotcore.hardware.Blinker;
+import com.qualcomm.robotcore.hardware.AnalogInput;
 
 @TeleOp(name="Hardware Advanced Tester", group="HAT")
 @Disabled
@@ -76,10 +75,8 @@ public class HAT extends LinearOpMode {
             lineMessage("No devices available.");
         } else if (hardwareDevice instanceof AccelerationSensor) {
             testAccelerationSensor((AccelerationSensor)hardwareDevice);
-        } else if (hardwareDevice instanceof AnalogSensor) {
-            testAnalogSensor((AnalogSensor)hardwareDevice);
-        } else if (hardwareDevice instanceof Blinker) {
-            testBlinker((Blinker)hardwareDevice);
+        } else if (hardwareDevice instanceof AnalogInput) {
+            testAnalogInput((AnalogInput)hardwareDevice);
         } else {
             lineMessage("Unsupported device type.");
         }
@@ -98,19 +95,11 @@ public class HAT extends LinearOpMode {
         }
     }
 
-    private void testAnalogSensor(AnalogSensor sensor) {
+    private void testAnalogInput(AnalogInput input) {
+        lineMessage("Maximum Voltage: " + input.getMaxVoltage());
         while (bstop()) {
-            telemetry.addData("Raw Voltage", sensor.readRawVoltage());
+            telemetry.addData("Voltage", input.getVoltage());
             telemetry.update();
-        }
-    }
-
-    private void testBlinker(Blinker blinker) {
-        lineMessage("Maximum Pattern Length: " + blinker.getBlinkerPatternMaxLength());
-        while (bstop()) {
-            queryValue();
-            telemetry.addData("Color", value);
-            blinker.setConstant(value);
         }
     }
 
