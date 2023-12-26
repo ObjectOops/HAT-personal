@@ -1,3 +1,27 @@
+/*
+MIT License
+
+Copyright (c) 2023 Trobotix 8696
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
+
 package org.firstinspires.ftc.teamcode.HAT;
 
 import java.util.List;
@@ -13,11 +37,16 @@ import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.HardwareDevice;
 import com.qualcomm.robotcore.hardware.AccelerationSensor;
+import com.qualcomm.robotcore.hardware.AnalogSensor;
+import com.qualcomm.robotcore.hardware.Blinker;
 
 @TeleOp(name="Hardware Advanced Tester", group="HAT")
 @Disabled
 
 public class HAT extends LinearOpMode {
+
+    private int value = 0;
+    private int delta = 1;
     
     @Override
     public void runOpMode() {
@@ -30,20 +59,85 @@ public class HAT extends LinearOpMode {
         HardwareMap.DeviceMapping<? extends HardwareDevice> deviceMapping = promptDeviceMapping();
         HardwareDevice hardwareDevice = promptHardwareDevice(deviceMapping);
 
+        if (hardwareDevice != null) {
+            lineMessage("Connection Info: " + hardwareDevice.getConnectionInfo());
+            lineMessage("Specific Device Name: " + hardwareDevice.getDeviceName());
+            lineMessage("Manufacturer: " + hardwareDevice.getManufacturer());
+            lineMessage("Version: " + hardwareDevice.getVersion());    
+        }
+
         lineMessage("Press play to continue.");
         
         waitForStart();
 
-        if (hardwareDevice instanceof AccelerationSensor) {
-            // testAccelerationSensor(hardwareDevice);
+        lineMessage("Press (B) to stop.");
+
+        if (hardwareDevice == null) {
+            lineMessage("No devices available.");
+        } else if (hardwareDevice instanceof AccelerationSensor) {
+            testAccelerationSensor((AccelerationSensor)hardwareDevice);
+        } else if (hardwareDevice instanceof AnalogSensor) {
+            testAnalogSensor((AnalogSensor)hardwareDevice);
+        } else if (hardwareDevice instanceof Blinker) {
+            testBlinker((Blinker)hardwareDevice);
         } else {
             lineMessage("Unsupported device type.");
         }
 
-        lineMessage("Testing finished. Press (A) to exit.");
+        lineMessage("Testing finished. Press (B) to exit.");
         waitExit();
 
         telemetry.setAutoClear(true);
+    }
+
+    private void testAccelerationSensor(AccelerationSensor sensor) {
+        lineMessage("Status: " + sensor.status());
+        while (bstop()) {
+            telemetry.addData("Acceleration (g's)", sensor.getAcceleration());
+            telemetry.update();
+        }
+    }
+
+    private void testAnalogSensor(AnalogSensor sensor) {
+        while (bstop()) {
+            telemetry.addData("Raw Voltage", sensor.readRawVoltage());
+            telemetry.update();
+        }
+    }
+
+    private void testBlinker(Blinker blinker) {
+        lineMessage("Maximum Pattern Length: " + blinker.getBlinkerPatternMaxLength());
+        while (bstop()) {
+            queryValue();
+            telemetry.addData("Color", value);
+            blinker.setConstant(value);
+        }
+    }
+
+    private void queryValue() {
+        telemetry.addData("Value", value);
+        telemetry.addData("Delta", delta);
+        telemetry.update();
+
+        if (gamepad1.dpad_up) {
+            value += delta;
+            menuWait();
+        } else if (gamepad1.dpad_down) {
+            value -= delta;
+            menuWait();
+        }
+
+        if (gamepad1.dpad_left && delta >= 10) {
+            delta /= 10;
+            menuWait();
+        } else if (gamepad1.dpad_right) {
+            delta *= 10;
+            menuWait();
+        }
+    }
+
+    private boolean bstop() {
+        return !gamepad1.b && !isStopRequested();
     }
 
     private void lineMessage(String message) {
@@ -73,6 +167,8 @@ public class HAT extends LinearOpMode {
                 --index;
                 ret = deviceMappings.get(index);
             }
+
+            menuWait();
         }
         while (gamepad1.a) {
             idle();
@@ -84,6 +180,10 @@ public class HAT extends LinearOpMode {
     private HardwareDevice promptHardwareDevice(HardwareMap.DeviceMapping<? extends HardwareDevice> deviceMapping) {
         Map.Entry<String, ? extends HardwareDevice>[] hardwareDevices = (Map.Entry<String, ? extends HardwareDevice>[])deviceMapping.entrySet().toArray();
         int size = hardwareDevices.length;
+
+        if (size == 0) {
+            return null;
+        }
 
         int index = 0;
         Map.Entry<String, ? extends HardwareDevice> ret = hardwareDevices[index];
@@ -103,6 +203,8 @@ public class HAT extends LinearOpMode {
                 --index;
                 ret = hardwareDevices[index];
             }
+
+            menuWait();
         }
         while (gamepad1.a) {
             idle();
@@ -111,8 +213,12 @@ public class HAT extends LinearOpMode {
         return ret.getValue();
     }
 
+    private void menuWait() {
+        sleep(250);
+    }
+
     private void waitExit() {
-        while (!gamepad1.a && !isStopRequested()) {
+        while (!gamepad1.b && !isStopRequested()) {
             idle();
         }
     }
