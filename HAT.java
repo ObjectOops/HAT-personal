@@ -34,6 +34,7 @@ import org.firstinspires.ftc.robotcore.external.Telemetry;
 
 import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 
+// import com.qualcomm.robotcore.hardware.*; // No.
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.HardwareDevice;
 import com.qualcomm.robotcore.hardware.AccelerationSensor;
@@ -44,6 +45,12 @@ import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DigitalChannel;
 import com.qualcomm.robotcore.hardware.GyroSensor;
 import com.qualcomm.robotcore.hardware.I2cDevice;
+import com.qualcomm.robotcore.hardware.IrSeekerSensor;
+import com.qualcomm.robotcore.hardware.LED;
+import com.qualcomm.robotcore.hardware.LightSensor;
+import com.qualcomm.robotcore.hardware.OpticalDistanceSensor;
+import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.hardware.TouchSensor;
 
 @TeleOp(name="Hardware Advanced Tester", group="HAT")
 @Disabled
@@ -96,6 +103,20 @@ public class HAT extends LinearOpMode {
             testGyroSensor((GyroSensor)hardwareDevice);
         } else if (hardwareDevice instanceof I2cDevice) {
             testI2cDevice((I2cDevice)hardwareDevice);
+        } else if (hardwareDevice instanceof IrSeekerSensor) {
+            testIrSeekerSensor((IrSeekerSensor)hardwareDevice);
+        } else if (hardwareDevice instanceof LED) {
+            // May never trigger due to LED never explicitly implementing HardwareDevice...
+            testLED((LED)hardwareDevice);
+        } else if (hardwareDevice instanceof LightSensor 
+            || hardwareDevice instanceof OpticalDistanceSensor
+        ) {
+            // The OpticalDistanceSensor is effectively the same thing as a LightSensor, but it's values have been normalized.
+            testLightSensor((LightSensor)hardwareDevice);
+        } else if (hardwareDevice instanceof Servo) {
+            testServo((Servo)hardwareDevice);
+        } else if (hardwareDevice instanceof TouchSensor) {
+            testTouchSensor((TouchSensor)hardwareDevice);
         } else {
             lineMessage("Unsupported device type.");
         }
@@ -163,14 +184,14 @@ public class HAT extends LinearOpMode {
         lineMessage("Press (A) to set direction to FORWARD and (X) to set direction to REVERSE.");
         while (bstop()) {
             queryValue();
-            double power = value / 100;
+            double power = value / 100.0;
             telemetry.addData("Power", power);
             telemetry.addData("Direction", servo.getDirection());
             servo.setPower(power);
 
             if (gamepad1.a) {
                 servo.setDirection(CRServo.Direction.FORWARD);
-            } else if (gamepad1.b) {
+            } else if (gamepad1.x) {
                 servo.setDirection(CRServo.Direction.REVERSE);
             }
         }
@@ -182,10 +203,11 @@ public class HAT extends LinearOpMode {
         while (bstop()) {
             boolean state = channel.getState();
             telemetry.addData("State", state);
+            telemetry.addData("Mode", channel.getMode());
 
             if (gamepad1.a) {
                 channel.setMode(DigitalChannel.Mode.INPUT);
-            } else if (gamepad1.b) {
+            } else if (gamepad1.x) {
                 channel.setMode(DigitalChannel.Mode.OUTPUT);
             }
             if (gamepad1.left_bumper) {
@@ -229,9 +251,110 @@ public class HAT extends LinearOpMode {
             String readData = "";
             byte[] readBuffer = device.getCopyOfReadBuffer();
             for (byte i : readBuffer) {
-                readData += i;
+                readData += i + " ";
             }
             telemetry.addData("Read Data (excluding four-byte header section)", readData);
+            telemetry.update();
+        }
+    }
+
+    private void testIrSeekerSensor(IrSeekerSensor sensor) {
+        value = (int)(sensor.getSignalDetectedThreshold() * 1000); // 1000 is currently an arbitrary constant.
+        delta = 100;
+        lineMessage("Press (A) to use 1200 Hz detection and (X) to use 600 Hz detection.");
+        while (bstop()) {
+            queryValue();
+            telemetry.addData("Angle", sensor.getAngle());
+            telemetry.addData("Mode", sensor.getMode());
+            telemetry.addData("Detection Threshold", sensor.getSignalDetectedThreshold());
+            telemetry.addData("Strength", sensor.getStrength());
+            telemetry.addData("Signal Detected", sensor.signalDetected());
+
+            IrSeekerSensor.IrSeekerIndividualSensor[] individualSensors = sensor.getIndividualSensors();
+            for (int i = 0; i < individualSensors.length; ++i) {
+                telemetry.addData(
+                    "Individual Sensor " + i, 
+                    "Angle (" + individualSensors[i].getSensorAngle() + ") Strength (" + individualSensors[i].getSensorStrength() + ")"
+                );
+            }
+
+            sensor.setSignalDetectedThreshold(value / 1000.0);
+
+            if (gamepad1.a) {
+                sensor.setMode(IrSeekerSensor.Mode.MODE_1200HZ);
+            } else if (gamepad1.x) {
+                sensor.setMode(IrSeekerSensor.Mode.MODE_600HZ);
+            }
+        }
+    }
+
+    private void testLED(LED led) {
+        lineMessage("Press (A) to enable, (X) to disable, and bumpers (left --> true, right --> false) to go the same to the light.");
+        while (bstop()) {
+            telemetry.addData("Light On", led.isLightOn());
+            telemetry.update();
+
+            if (gamepad1.a) {
+                led.enable(true);
+            } else if (gamepad1.x) {
+                led.enable(false);
+            }
+
+            if (gamepad1.left_bumper) {
+                led.enableLight(true);
+            } else if (gamepad1.right_bumper) {
+                led.enableLight(false);
+            }
+        }
+    }
+
+    private void testLightSensor(LightSensor sensor) {
+        lineMessage("Press (A) to enable the LED light and (X) to disable.");
+        lineMessage("Status: " + sensor.status());
+        lineMessage("Raw Light Maximum: " + sensor.getRawLightDetectedMax());
+        while (bstop()) {
+            telemetry.addData("Light Detected", sensor.getLightDetected());
+            telemetry.addData("Raw Light Detected", sensor.getRawLightDetected());
+            telemetry.update();
+
+            if (gamepad1.a) {
+                sensor.enableLed(true);
+            } else if (gamepad1.x) {
+                sensor.enableLed(false);
+            }
+        }
+    }
+
+    private void testServo(Servo servo) {
+        value = (int)(servo.getPosition() * 100);
+        delta = 10;
+        lineMessage("Servo Maximum Position: " + Servo.MAX_POSITION);
+        lineMessage("Servo Minimum Position: " + Servo.MIN_POSITION);
+        lineMessage("Port Number: " + servo.getPortNumber());
+        lineMessage("Press (A) to set direction to FORWARD and (X) to set direction to REVERSE.");
+        while (bstop()) {
+            queryValue();
+            double requestedPosition = value / 100.0;
+            telemetry.addData("Actual Position", servo.getPosition());
+            telemetry.addData("Direction", servo.getDirection());
+            telemetry.addData("Requested Position", requestedPosition);
+            
+            // Implementing scaleRange doesn't appear to have any apparent utility.
+
+            servo.setPosition(requestedPosition);
+
+            if (gamepad1.a) {
+                servo.setDirection(Servo.Direction.FORWARD);
+            } else if (gamepad1.b) {
+                servo.setDirection(Servo.Direction.REVERSE);
+            }
+        }
+    }
+
+    private void testTouchSensor(TouchSensor sensor) {
+        while (bstop()) {
+            telemetry.addData("Force Applied", sensor.getValue());
+            telemetry.addData("Pressed", sensor.isPressed());
             telemetry.update();
         }
     }
