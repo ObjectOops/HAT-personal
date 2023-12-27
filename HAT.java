@@ -51,6 +51,13 @@ import com.qualcomm.robotcore.hardware.LightSensor;
 import com.qualcomm.robotcore.hardware.OpticalDistanceSensor;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.TouchSensor;
+import com.qualcomm.robotcore.hardware.UltrasonicSensor;
+import com.qualcomm.robotcore.hardware.VoltageSensor;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.DcMotor;
+
+import com.qualcomm.robotcore.hardware.configuration.typecontainers.MotorConfigurationType;
+import org.firstinspires.ftc.robotcore.external.navigation.CurrentUnit;
 
 @TeleOp(name="Hardware Advanced Tester", group="HAT")
 @Disabled
@@ -117,6 +124,14 @@ public class HAT extends LinearOpMode {
             testServo((Servo)hardwareDevice);
         } else if (hardwareDevice instanceof TouchSensor) {
             testTouchSensor((TouchSensor)hardwareDevice);
+        } else if (hardwareDevice instanceof UltrasonicSensor) {
+            testUltrasonicSensor((UltrasonicSensor)hardwareDevice);
+        } else if (hardwareDevice instanceof VoltageSensor) {
+            testVoltageSensor((VoltageSensor)hardwareDevice);
+        } else if (hardwareDevice instanceof DcMotor 
+            || hardwareDevice instanceof DcMotorEx
+        ) {
+            testDcMotor((DcMotor)hardwareDevice);
         } else {
             lineMessage("Unsupported device type.");
         }
@@ -219,7 +234,7 @@ public class HAT extends LinearOpMode {
     }
 
     private void testGyroSensor(GyroSensor gyro) {
-        lineMessage("Status" + gyro.status());
+        lineMessage("Status: " + gyro.status());
         lineMessage("Press (A) to recalibrate and (X) to reset the z-axis integrator.");
         while (bstop()) {
             try {
@@ -345,7 +360,7 @@ public class HAT extends LinearOpMode {
 
             if (gamepad1.a) {
                 servo.setDirection(Servo.Direction.FORWARD);
-            } else if (gamepad1.b) {
+            } else if (gamepad1.x) {
                 servo.setDirection(Servo.Direction.REVERSE);
             }
         }
@@ -356,6 +371,105 @@ public class HAT extends LinearOpMode {
             telemetry.addData("Force Applied", sensor.getValue());
             telemetry.addData("Pressed", sensor.isPressed());
             telemetry.update();
+        }
+    }
+
+    private void testUltrasonicSensor(UltrasonicSensor sensor) {
+        lineMessage("Status: " + sensor.status());
+        while (bstop()) {
+            telemetry.addData("Ultrasonic Level", sensor.getUltrasonicLevel());
+            telemetry.update();
+        }
+    }
+
+    private void testVoltageSensor(VoltageSensor sensor) {
+        while (bstop()) {
+            telemetry.addData("Voltage", sensor.getVoltage());
+        }
+    }
+
+    private void testDcMotor(DcMotor motor) {
+        value = 0;
+        delta = 100;
+        motor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        motor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        boolean ex = motor instanceof DcMotorEx;
+        MotorConfigurationType motorConfigType = motor.getMotorType();
+        lineMessage("Max RPM Fraction: " + motorConfigType.getAchieveableMaxRPMFraction());
+        lineMessage("Max Ticks Per Second: " + motorConfigType.getAchieveableMaxTicksPerSecond());
+        lineMessage("Distributor: " + motorConfigType.getDistributorInfo().getDistributor());
+        lineMessage("Mode: " + motorConfigType.getDistributorInfo().getModel());
+        lineMessage("Gearing: " + motorConfigType.getGearing());
+        // If the toString method from PIDFCoefficients is insufficient, then those fields can be obtained from the object directly.
+        lineMessage("Default Position PIDF Coeffcients: " + motorConfigType.getHubPositionParams().getPidfCoefficients());
+        lineMessage("Default Velocity PIDF Coeffcients: " + motorConfigType.getHubVelocityParams().getPidfCoefficients());
+        lineMessage("Max RPM: " + motorConfigType.getMaxRPM());
+        lineMessage("Ticks per Revolution:" + motorConfigType.getTicksPerRev());
+        // Many other configuration properties not listed due to lack of purpose in documentation.
+        lineMessage("Port Number: " + motor.getPortNumber());
+        lineMessage("================");
+        lineMessage("Press (A) to run to position, (X) to enter zero power brake, (Y) to enter zero power float.");
+        lineMessage("Press bumpers to set direction (left --> FORWARD, right --> REVERSE)");
+        lineMessage("Use the right joystick to manually control the motor.");
+        lineMessage("Before running to position (A), use the left joystick to control that operations's power.");
+        while (bstop()) {
+            queryValue();
+            DcMotor.RunMode runMode = motor.getMode();
+            telemetry.addData("Encoder Position", motor.getCurrentPosition());
+            telemetry.addData("Mode", runMode);
+            telemetry.addData("Power Float", motor.getPowerFloat());
+            telemetry.addData("Zero Power Behavior", motor.getZeroPowerBehavior());
+            telemetry.addData("Set Target Position", value);
+
+            double runToPower = gamepad1.left_stick_y;
+            telemetry.addData("Run To Position Power (left joystick)", runToPower);
+            boolean busy = motor.isBusy();
+            if (runMode == DcMotor.RunMode.RUN_TO_POSITION) {
+                telemetry.addData("Busy", busy);
+                telemetry.addData("Target Position", motor.getTargetPosition());
+            }
+
+            if (gamepad1.a && !busy) {
+                motor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+                motor.setTargetPosition(value);
+                motor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+                motor.setPower(runToPower);
+                sleep(100);
+            }
+
+            if (gamepad1.x) {
+                motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+            } else if (gamepad1.y) {
+                motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+            }
+
+            double manualPower = gamepad1.right_stick_y;
+            telemetry.addData("Manual Power", manualPower);
+            if (Math.abs(manualPower) > 0) {
+                if (runMode == DcMotor.RunMode.RUN_TO_POSITION) {
+                    motor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+                    motor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+                }
+                motor.setPower(manualPower);
+            }
+
+            if (ex) {
+                DcMotorEx motorEx = (DcMotorEx)motor;
+                telemetry.addData("Current (AMPS)", motorEx.getCurrent(CurrentUnit.AMPS));
+                telemetry.addData("Current (MILLIAMPS)", motorEx.getCurrent(CurrentUnit.MILLIAMPS));
+                telemetry.addData("PIDF Coefficients (RUN_USING_ENCODER)", motorEx.getPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER));
+                telemetry.addData("PIDF Coefficients (RUN_TO_POSITION)", motorEx.getPIDFCoefficients(DcMotor.RunMode.RUN_TO_POSITION));
+                telemetry.addData("Target Position Tolerance", motorEx.getTargetPositionTolerance());
+                telemetry.addData("Velocity (TPS)", motorEx.getVelocity());
+                telemetry.addData("Over Current", motorEx.isOverCurrent());
+                // Some redundant properties not used.
+            }
+
+            if (gamepad1.left_bumper) {
+                motor.setDirection(DcMotor.Direction.FORWARD);
+            } else if (gamepad1.right_bumper) {
+                motor.setDirection(DcMotor.Direction.REVERSE);
+            }
         }
     }
 
