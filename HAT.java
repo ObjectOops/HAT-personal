@@ -38,6 +38,12 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.HardwareDevice;
 import com.qualcomm.robotcore.hardware.AccelerationSensor;
 import com.qualcomm.robotcore.hardware.AnalogInput;
+import com.qualcomm.robotcore.hardware.ColorSensor;
+import com.qualcomm.robotcore.hardware.CompassSensor;
+import com.qualcomm.robotcore.hardware.CRServo;
+import com.qualcomm.robotcore.hardware.DigitalChannel;
+import com.qualcomm.robotcore.hardware.GyroSensor;
+import com.qualcomm.robotcore.hardware.I2cDevice;
 
 @TeleOp(name="Hardware Advanced Tester", group="HAT")
 @Disabled
@@ -65,6 +71,7 @@ public class HAT extends LinearOpMode {
             lineMessage("Version: " + hardwareDevice.getVersion());    
         }
 
+        lineMessage("Note: Use the dpad to adjust integral values.");
         lineMessage("Press play to continue.");
         
         waitForStart();
@@ -77,6 +84,18 @@ public class HAT extends LinearOpMode {
             testAccelerationSensor((AccelerationSensor)hardwareDevice);
         } else if (hardwareDevice instanceof AnalogInput) {
             testAnalogInput((AnalogInput)hardwareDevice);
+        } else if (hardwareDevice instanceof ColorSensor) {
+            testColorSensor((ColorSensor)hardwareDevice);
+        } else if (hardwareDevice instanceof CompassSensor) {
+            testCompassSensor((CompassSensor)hardwareDevice);
+        } else if (hardwareDevice instanceof CRServo) {
+            testCRServo((CRServo)hardwareDevice);
+        } else if (hardwareDevice instanceof DigitalChannel) {
+            testDigitalChannel((DigitalChannel)hardwareDevice);
+        } else if (hardwareDevice instanceof GyroSensor) {
+            testGyroSensor((GyroSensor)hardwareDevice);
+        } else if (hardwareDevice instanceof I2cDevice) {
+            testI2cDevice((I2cDevice)hardwareDevice);
         } else {
             lineMessage("Unsupported device type.");
         }
@@ -99,6 +118,120 @@ public class HAT extends LinearOpMode {
         lineMessage("Maximum Voltage: " + input.getMaxVoltage());
         while (bstop()) {
             telemetry.addData("Voltage", input.getVoltage());
+            telemetry.update();
+        }
+    }
+
+    private void testColorSensor(ColorSensor sensor) {
+        lineMessage("Press (A) to enable and (X) to disable LED if available.");
+        while (bstop()) {
+            telemetry.addData("Alpha (brightness)", sensor.alpha());
+            telemetry.addData("ARGB Color Value", sensor.argb());
+            telemetry.addData("Red", sensor.red());
+            telemetry.addData("Green", sensor.green());
+            telemetry.addData("Blue", sensor.blue());
+            telemetry.update();
+
+            if (gamepad1.a) {
+                sensor.enableLed(true);
+            } else if (gamepad1.x) {
+                sensor.enableLed(false);
+            }
+        }
+    }
+
+    private void testCompassSensor(CompassSensor sensor) {
+        lineMessage("Status: " + sensor.status());
+        lineMessage("Press (A) to enter measurement mode and (X) to enter calibration mode.");
+        while (bstop()) {
+            telemetry.addData("Calibration Failed", sensor.calibrationFailed());
+            telemetry.addData("Direction [0, 360)", sensor.getDirection());
+            telemetry.update();
+
+            if (gamepad1.a) {
+                sensor.setMode(CompassSensor.CompassMode.MEASUREMENT_MODE);
+            } else if (gamepad1.x) {
+                sensor.setMode(CompassSensor.CompassMode.CALIBRATION_MODE);
+            }
+        }
+    }
+
+    private void testCRServo(CRServo servo) {
+        value = 0;
+        delta = 10;
+        lineMessage("Port Number: " + servo.getPortNumber());
+        lineMessage("Press (A) to set direction to FORWARD and (X) to set direction to REVERSE.");
+        while (bstop()) {
+            queryValue();
+            double power = value / 100;
+            telemetry.addData("Power", power);
+            telemetry.addData("Direction", servo.getDirection());
+            servo.setPower(power);
+
+            if (gamepad1.a) {
+                servo.setDirection(CRServo.Direction.FORWARD);
+            } else if (gamepad1.b) {
+                servo.setDirection(CRServo.Direction.REVERSE);
+            }
+        }
+    }
+
+    private void testDigitalChannel(DigitalChannel channel) {
+        lineMessage("Press (A) to enter INPUT mode and (X) to enter OUTPUT mode.");
+        lineMessage("Press bumpers to toggle channel state.");
+        while (bstop()) {
+            boolean state = channel.getState();
+            telemetry.addData("State", state);
+
+            if (gamepad1.a) {
+                channel.setMode(DigitalChannel.Mode.INPUT);
+            } else if (gamepad1.b) {
+                channel.setMode(DigitalChannel.Mode.OUTPUT);
+            }
+            if (gamepad1.left_bumper) {
+                channel.setState(true);
+            } else if (gamepad1.right_bumper) {
+                channel.setState(false);
+            }
+        }
+    }
+
+    private void testGyroSensor(GyroSensor gyro) {
+        lineMessage("Status" + gyro.status());
+        lineMessage("Press (A) to recalibrate and (X) to reset the z-axis integrator.");
+        while (bstop()) {
+            try {
+                boolean calibrating = gyro.isCalibrating();
+                telemetry.addData("Calibrating", calibrating);
+                telemetry.addData("Heading (z-axis)", gyro.getHeading());
+                telemetry.addData("Rotational Fraction", gyro.getRotationFraction());
+                telemetry.addData("Raw X", gyro.rawX());
+                telemetry.addData("Raw Y", gyro.rawY());
+                telemetry.addData("Raw Z", gyro.rawZ());
+                telemetry.update();
+    
+                if (gamepad1.a && !calibrating) {
+                    gyro.calibrate();
+                }
+                if (gamepad1.x) {
+                    gyro.resetZAxisIntegrator();
+                }
+            } catch (Exception e) {
+                lineMessage("Gyro encountered an unsupported operation. Ending test.");
+                break;
+            }
+        }
+    }
+
+    private void testI2cDevice(I2cDevice device) {
+        lineMessage("Note: Lack of support.");
+        while (bstop()) {
+            String readData = "";
+            byte[] readBuffer = device.getCopyOfReadBuffer();
+            for (byte i : readBuffer) {
+                readData += i;
+            }
+            telemetry.addData("Read Data (excluding four-byte header section)", readData);
             telemetry.update();
         }
     }
