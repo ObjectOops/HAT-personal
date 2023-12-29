@@ -136,6 +136,7 @@ public class HAT extends LinearOpMode {
         }
 
         lineMessage("Testing finished. Press (B) to exit.");
+        sleep(250);
         waitExit();
     }
 
@@ -502,7 +503,7 @@ public class HAT extends LinearOpMode {
     }
 
     private void lineMessage(String message) {
-        Telemetry.Item temp = telemetry.addData(message, "");
+        Telemetry.Item temp = telemetry.addData(message, null);
         temp.setRetained(true);
         telemetry.update();
     }
