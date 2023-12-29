@@ -60,7 +60,7 @@ import com.qualcomm.robotcore.hardware.configuration.typecontainers.MotorConfigu
 import org.firstinspires.ftc.robotcore.external.navigation.CurrentUnit;
 
 @TeleOp(name="Hardware Advanced Tester", group="HAT")
-@Disabled
+//@Disabled
 
 public class HAT extends LinearOpMode {
 
@@ -69,7 +69,6 @@ public class HAT extends LinearOpMode {
     
     @Override
     public void runOpMode() {
-        telemetry.setAutoClear(false);
 
         lineMessage("Hardware Advanced Tester (HAT)");
         lineMessage(hardwareMap.size() + " configured devices deteced.");
@@ -138,8 +137,6 @@ public class HAT extends LinearOpMode {
 
         lineMessage("Testing finished. Press (B) to exit.");
         waitExit();
-
-        telemetry.setAutoClear(true);
     }
 
     private void testAccelerationSensor(AccelerationSensor sensor) {
@@ -347,6 +344,7 @@ public class HAT extends LinearOpMode {
         lineMessage("Servo Minimum Position: " + Servo.MIN_POSITION);
         lineMessage("Port Number: " + servo.getPortNumber());
         lineMessage("Press (A) to set direction to FORWARD and (X) to set direction to REVERSE.");
+        lineMessage("Press (Y) to set position.");
         while (bstop()) {
             queryValue();
             double requestedPosition = value / 100.0;
@@ -356,7 +354,9 @@ public class HAT extends LinearOpMode {
             
             // Implementing scaleRange doesn't appear to have any apparent utility.
 
-            servo.setPosition(requestedPosition);
+            if (gamepad1.y) {
+                servo.setPosition(requestedPosition);
+            }
 
             if (gamepad1.a) {
                 servo.setDirection(Servo.Direction.FORWARD);
@@ -385,6 +385,7 @@ public class HAT extends LinearOpMode {
     private void testVoltageSensor(VoltageSensor sensor) {
         while (bstop()) {
             telemetry.addData("Voltage", sensor.getVoltage());
+            telemetry.update();
         }
     }
 
@@ -412,6 +413,7 @@ public class HAT extends LinearOpMode {
         lineMessage("Press bumpers to set direction (left --> FORWARD, right --> REVERSE)");
         lineMessage("Use the right joystick to manually control the motor.");
         lineMessage("Before running to position (A), use the left joystick to control that operations's power.");
+        sleep(2000);
         while (bstop()) {
             queryValue();
             DcMotor.RunMode runMode = motor.getMode();
@@ -446,7 +448,7 @@ public class HAT extends LinearOpMode {
             double manualPower = gamepad1.right_stick_y;
             telemetry.addData("Manual Power", manualPower);
             if (Math.abs(manualPower) > 0) {
-                if (runMode == DcMotor.RunMode.RUN_TO_POSITION) {
+                if (runMode == DcMotor.RunMode.RUN_TO_POSITION || runMode == DcMotor.RunMode.RUN_USING_ENCODER) {
                     motor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
                     motor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
                 }
@@ -500,7 +502,8 @@ public class HAT extends LinearOpMode {
     }
 
     private void lineMessage(String message) {
-        telemetry.addLine(message);
+        Telemetry.Item temp = telemetry.addData(message, "");
+        temp.setRetained(true);
         telemetry.update();
     }
 
@@ -537,7 +540,7 @@ public class HAT extends LinearOpMode {
     }
 
     private HardwareDevice promptHardwareDevice(HardwareMap.DeviceMapping<? extends HardwareDevice> deviceMapping) {
-        Map.Entry<String, ? extends HardwareDevice>[] hardwareDevices = (Map.Entry<String, ? extends HardwareDevice>[])deviceMapping.entrySet().toArray();
+        Object[] hardwareDevices = deviceMapping.entrySet().toArray();
         int size = hardwareDevices.length;
 
         if (size == 0) {
@@ -545,7 +548,7 @@ public class HAT extends LinearOpMode {
         }
 
         int index = 0;
-        Map.Entry<String, ? extends HardwareDevice> ret = hardwareDevices[index];
+        Map.Entry<String, ? extends HardwareDevice> ret = (Map.Entry<String, ? extends HardwareDevice>)hardwareDevices[index];
 
         Telemetry.Item item = telemetry.addData("", "");
 
@@ -556,11 +559,11 @@ public class HAT extends LinearOpMode {
 
             if (gamepad1.dpad_up && index < size - 1) {
                 ++index;
-                ret = hardwareDevices[index];
+                ret = (Map.Entry<String, ? extends HardwareDevice>)hardwareDevices[index];
             }
             else if (gamepad1.dpad_down && index > 0) {
                 --index;
-                ret = hardwareDevices[index];
+                ret = (Map.Entry<String, ? extends HardwareDevice>)hardwareDevices[index];
             }
 
             menuWait();
