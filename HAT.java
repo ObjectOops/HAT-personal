@@ -448,11 +448,14 @@ public class HAT extends LinearOpMode {
 
             double manualPower = gamepad1.right_stick_y;
             telemetry.addData("Manual Power", manualPower);
-            if (Math.abs(manualPower) > 0) {
-                if (runMode == DcMotor.RunMode.RUN_TO_POSITION || runMode == DcMotor.RunMode.RUN_USING_ENCODER) {
-                    motor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-                    motor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-                }
+            if (
+                Math.abs(manualPower) > 0 
+                && (runMode == DcMotor.RunMode.RUN_TO_POSITION || runMode == DcMotor.RunMode.RUN_USING_ENCODER)
+            ) {
+                motor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+                motor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+            }
+            if (runMode == DcMotor.RunMode.RUN_WITHOUT_ENCODER) {
                 motor.setPower(manualPower);
             }
 
